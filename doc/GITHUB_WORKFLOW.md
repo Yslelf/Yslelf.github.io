@@ -17,6 +17,8 @@ Git 仓库根目录是 `XY_NanChang`，统一保存：
 3. 构建 UniApp H5；
 4. 将 `xy-frontend/dist/build/h5` 发布到 GitHub Pages。
 
+GitHub 仓库名为 `Yslelf.github.io`，因此 H5 使用根路径 `/` 构建，发布地址为 `https://yslelf.github.io/`。
+
 仓库首次创建后，需要在 GitHub 的 **Settings → Pages → Build and deployment** 中选择 **GitHub Actions**。
 
 高德地图线上预览需要在仓库 **Settings → Secrets and variables → Actions** 增加：

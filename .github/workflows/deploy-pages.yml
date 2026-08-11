@@ -40,7 +40,7 @@ jobs:
       - name: Build H5
         run: npm run build:h5
         env:
-          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_BASE_PATH: /
           VITE_AMAP_KEY: ${{ secrets.VITE_AMAP_KEY }}
           VITE_AMAP_SECURITY_CODE: ${{ secrets.VITE_AMAP_SECURITY_CODE }}
 
