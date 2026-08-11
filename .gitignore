@@ -1,0 +1,23 @@
+.DS_Store
+.idea/
+.vscode/
+
+# Frontend dependencies and builds
+xy-frontend/node_modules/
+xy-frontend/dist/
+xy-frontend/.env.local
+xy-frontend/.env.*.local
+
+# ASP.NET Core / IDE outputs reserved for the backend
+**/bin/
+**/obj/
+**/.vs/
+*.user
+*.suo
+
+# Local secrets and runtime artifacts
+*.log
+.env
+.env.local
+appsettings.*.Local.json
+appsettings.*.Development.local.json

@@ -1,0 +1,10 @@
+{
+  "name": "XY南昌",
+  "appid": "__UNI__XYNANCHANG",
+  "description": "发现真实地点，认识同频的人",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "h5": { "title": "XY南昌", "router": { "mode": "hash" } },
+  "mp-weixin": { "appid": "", "setting": { "urlCheck": false } }
+}
