@@ -266,5 +266,27 @@
       "checkedIn": false,
       "live": false
     }
-  ]
+  ],
+  "messages": {
+    "conversations": [
+      { "id": 1, "name": "小宇在散步", "avatar": "https://i.pravatar.cc/160?img=12", "text": "赣江边今天的晚霞真的很好看！", "time": "18:42", "unread": 2, "online": true },
+      { "id": 2, "name": "阿白看展中", "avatar": "https://i.pravatar.cc/160?img=32", "text": "周末那个展览你去了吗？", "time": "昨天", "unread": 0, "online": false },
+      { "id": 3, "name": "蓝莓相机", "avatar": "https://i.pravatar.cc/160?img=47", "text": "[图片] 这个机位分享给你", "time": "星期一", "unread": 1, "online": true },
+      { "id": 4, "name": "南昌周末局", "avatar": "https://i.pravatar.cc/160?img=8", "text": "栗子：集合地点改到地铁口啦", "time": "8月9日", "unread": 0, "online": false },
+      { "id": 5, "name": "南昌高校摄影交流群", "avatar": "https://i.pravatar.cc/160?img=29", "text": "星辰：周末外拍有人一起吗？", "time": "昨天", "unread": 18, "online": false },
+      { "id": 6, "name": "红谷滩租房避坑群", "avatar": "https://i.pravatar.cc/160?img=36", "text": "小艾分享了一个新地点", "time": "昨天", "unread": 0, "online": false },
+      { "id": 7, "name": "27考研信息更新群", "avatar": "https://i.pravatar.cc/160?img=49", "text": "阿柚加入了群聊", "time": "星期一", "unread": 4, "online": false }
+    ],
+    "notices": [
+      { "id": 11, "type": "comments", "user": "林同学", "avatar": "https://i.pravatar.cc/160?img=18", "action": "评论了你的笔记", "content": "傍晚六点左右的光线最好，收藏了！", "time": "2小时前", "cover": "https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?auto=format&fit=crop&w=300&q=70" },
+      { "id": 12, "type": "likes", "user": "周末散步", "avatar": "https://i.pravatar.cc/160?img=22", "action": "赞了你的笔记", "content": "把南昌的橘子汽水天空收进口袋", "time": "3小时前", "cover": "https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?auto=format&fit=crop&w=300&q=70" },
+      { "id": 13, "type": "follows", "user": "四月影像", "avatar": "https://i.pravatar.cc/160?img=11", "action": "开始关注你了", "content": "南昌城市摄影 · 12篇笔记", "time": "昨天", "cover": "" },
+      { "id": 14, "type": "comments", "user": "栗子周末", "avatar": "https://i.pravatar.cc/160?img=9", "action": "回复了你的评论", "content": "可以呀，下次一起去！", "time": "昨天", "cover": "https://images.unsplash.com/photo-1545987796-200677ee1011?auto=format&fit=crop&w=300&q=70" }
+    ],
+    "chatMessages": [
+      { "id": 1, "conversationId": 1, "mine": false, "content": "嗨，你分享的赣江步道路线很实用", "time": "18:36", "status": "sent" },
+      { "id": 2, "conversationId": 1, "mine": true, "content": "谢谢！傍晚六点左右过去最好看", "time": "18:38", "status": "sent" },
+      { "id": 3, "conversationId": 1, "mine": false, "content": "赣江边今天的晚霞真的很好看！", "time": "18:42", "status": "sent" }
+    ]
+  }
 }

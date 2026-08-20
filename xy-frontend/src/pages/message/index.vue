@@ -1,163 +1,41 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { storeToRefs } from "pinia";
 import AppIcon from "@/components/AppIcon.vue";
+import { useMessageStore } from "@/stores/message";
+import type { NoticeType } from "@/types/message";
 
-type NoticeType = "comments" | "likes" | "follows";
+const messageStore = useMessageStore();
+const { conversations, notices, chatMessages, activeConversation, loading, error } = storeToRefs(messageStore);
 const activeTab = ref<"messages" | NoticeType>("messages");
-const selectedChat = ref<string | null>(null);
+const selectedChat = computed({
+  get: () => activeConversation.value?.name ?? null,
+  set: (value) => { if (!value) messageStore.selectedConversationId = null; },
+});
 const centerMode = ref<null | "system" | "audit" | "reward">(null);
 const draft = ref("");
 const rewardCode = ref("");
 const rewardActivated = ref(false);
-const conversations = ref([
-  {
-    id: 1,
-    name: "小宇在散步",
-    avatar: "https://i.pravatar.cc/160?img=12",
-    text: "赣江边今天的晚霞真的很好看！",
-    time: "18:42",
-    unread: 2,
-    online: true,
-  },
-  {
-    id: 2,
-    name: "阿白看展中",
-    avatar: "https://i.pravatar.cc/160?img=32",
-    text: "周末那个展览你去了吗？",
-    time: "昨天",
-    unread: 0,
-    online: false,
-  },
-  {
-    id: 3,
-    name: "蓝莓相机",
-    avatar: "https://i.pravatar.cc/160?img=47",
-    text: "[图片] 这个机位分享给你",
-    time: "星期一",
-    unread: 1,
-    online: true,
-  },
-  {
-    id: 4,
-    name: "南昌周末局",
-    avatar: "https://i.pravatar.cc/160?img=8",
-    text: "栗子：集合地点改到地铁口啦",
-    time: "8月9日",
-    unread: 0,
-    online: false,
-  },
-  {
-    id: 5,
-    name: "南昌高校摄影交流群",
-    avatar: "https://i.pravatar.cc/160?img=29",
-    text: "星辰：周末外拍有人一起吗？",
-    time: "昨天",
-    unread: 18,
-    online: false,
-  },
-  {
-    id: 6,
-    name: "红谷滩租房避坑群",
-    avatar: "https://i.pravatar.cc/160?img=36",
-    text: "小艾分享了一个新地点",
-    time: "昨天",
-    unread: 0,
-    online: false,
-  },
-  {
-    id: 7,
-    name: "27考研信息更新群",
-    avatar: "https://i.pravatar.cc/160?img=49",
-    text: "阿柚加入了群聊",
-    time: "星期一",
-    unread: 4,
-    online: false,
-  },
-]);
-const notices = [
-  {
-    id: 11,
-    type: "comments",
-    user: "林同学",
-    avatar: "https://i.pravatar.cc/160?img=18",
-    action: "评论了你的笔记",
-    content: "傍晚六点左右的光线最好，收藏了！",
-    time: "2小时前",
-    cover:
-      "https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?auto=format&fit=crop&w=300&q=70",
-  },
-  {
-    id: 12,
-    type: "likes",
-    user: "周末散步",
-    avatar: "https://i.pravatar.cc/160?img=22",
-    action: "赞了你的笔记",
-    content: "把南昌的橘子汽水天空收进口袋",
-    time: "3小时前",
-    cover:
-      "https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?auto=format&fit=crop&w=300&q=70",
-  },
-  {
-    id: 13,
-    type: "follows",
-    user: "四月影像",
-    avatar: "https://i.pravatar.cc/160?img=11",
-    action: "开始关注你了",
-    content: "南昌城市摄影 · 12篇笔记",
-    time: "昨天",
-    cover: "",
-  },
-  {
-    id: 14,
-    type: "comments",
-    user: "栗子周末",
-    avatar: "https://i.pravatar.cc/160?img=9",
-    action: "回复了你的评论",
-    content: "可以呀，下次一起去！",
-    time: "昨天",
-    cover:
-      "https://images.unsplash.com/photo-1545987796-200677ee1011?auto=format&fit=crop&w=300&q=70",
-  },
-];
 const filteredNotices = computed(() =>
-  notices.filter((item) => item.type === activeTab.value),
+  notices.value.filter((item) => item.type === activeTab.value),
 );
-const activeConversation = computed(() =>
-  conversations.value.find((item) => item.name === selectedChat.value),
+const visibleChatMessages = computed(() =>
+  chatMessages.value.filter(item => item.conversationId === messageStore.selectedConversationId),
 );
-const chatMessages = ref([
-  {
-    id: 1,
-    mine: false,
-    content: "嗨，你分享的赣江步道路线很实用",
-    time: "18:36",
-  },
-  { id: 2, mine: true, content: "谢谢！傍晚六点左右过去最好看", time: "18:38" },
-  {
-    id: 3,
-    mine: false,
-    content: "赣江边今天的晚霞真的很好看！",
-    time: "18:42",
-  },
-]);
 
-function openChat(name: string) {
-  selectedChat.value = name;
+async function openChat(name: string) {
   const target = conversations.value.find((item) => item.name === name);
-  if (target) target.unread = 0;
+  if (target) await messageStore.openConversation(target.id);
 }
 
-function sendMessage() {
+async function sendMessage() {
   const content = draft.value.trim();
   if (!content) return;
-  chatMessages.value.push({
-    id: Date.now(),
-    mine: true,
-    content,
-    time: "刚刚",
-  });
+  await messageStore.send(content);
   draft.value = "";
 }
+
+onMounted(() => messageStore.load());
 
 function searchMessages() {
   uni.showToast({ title: "可搜索联系人、群聊与聊天记录", icon: "none" });
@@ -222,6 +100,14 @@ function activateReward() {
     </button>
     <scroll-view scroll-y class="message-scroll">
       <view v-if="activeTab === 'messages'" class="conversation-list">
+        <view v-if="loading" class="notice-empty">
+          <text>正在加载消息…</text>
+        </view>
+        <view v-else-if="error" class="notice-empty">
+          <AppIcon type="notification" size="30" color="#93a19d" />
+          <text>{{ error }}</text><button @click="messageStore.load()">重新加载</button>
+        </view>
+        <template v-else>
         <button class="system-row">
           <view class="system-icon"
             ><AppIcon type="notification" size="25" color="#fff" /></view
@@ -259,6 +145,7 @@ function activateReward() {
             ><text>{{ item.text }}</text></view
           ><text>{{ item.time }}</text>
         </button>
+        </template>
       </view>
       <view v-else class="notice-list"
         ><view v-if="filteredNotices.length"
@@ -433,7 +320,7 @@ function activateReward() {
       <scroll-view scroll-y class="chat-scroll"
         ><view class="chat-time">今天 18:30</view
         ><view
-          v-for="message in chatMessages"
+          v-for="message in visibleChatMessages"
           :key="message.id"
           class="bubble-row"
           :class="{ mine: message.mine }"

@@ -129,7 +129,37 @@
 }
 ```
 
-## 6. 认证预留
+## 6. 消息中心
+
+消息首页使用聚合接口，前端 DTO 与 `src/types/message.ts`、`mock.json.messages` 保持一致。
+
+| 方法 | 路径 | 认证 | 用途 |
+| --- | --- | --- | --- |
+| GET | `/messages/home` | 是 | 会话、互动通知与首屏聊天记录 |
+| GET | `/messages/conversations` | 是 | 会话游标分页与关键词搜索 |
+| PUT | `/messages/conversations/{id}/read` | 是 | 将会话标记为已读，幂等 |
+| GET | `/messages/conversations/{id}/messages` | 是 | 聊天记录游标分页 |
+| POST | `/messages/conversations/{id}/messages` | 是 | 发送文本、图片或地点消息 |
+| GET | `/messages/notices` | 是 | 按 `comments|likes|follows` 查询互动通知 |
+| GET | `/messages/audits` | 是 | 当前用户的内容审核记录 |
+| GET | `/messages/rewards` | 是 | 奖励余额、待领取与领取记录 |
+| POST | `/messages/rewards/activate` | 是 | 激活奖励码，接口必须支持幂等 |
+
+发送文本消息：
+
+```json
+{
+  "clientMessageId": "01JXYCLIENTMSG1",
+  "type": "text",
+  "content": "傍晚六点左右过去最好看"
+}
+```
+
+服务端返回正式消息 ID、UTC 创建时间和发送状态。实时推送后续通过 ASP.NET Core SignalR 的 `/hubs/chat` 提供，REST 接口仍作为发送和历史记录的可靠主链路。
+
+已读接口由服务端根据当前用户身份更新 `lastReadMessageId`，禁止客户端提交未读数量。未读数由数据库游标计算或缓存投影生成。
+
+## 7. 认证预留
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
@@ -138,7 +168,7 @@
 | POST | `/auth/logout` | 撤销刷新令牌 |
 | GET | `/users/me` | 当前用户摘要 |
 
-## 7. ASP.NET Core 实现约定
+## 8. ASP.NET Core 实现约定
 
 - 通过 Swagger/OpenAPI 暴露当前契约，并生成前端客户端作为后续优化项。
 - 查询接口返回 DTO，禁止直接序列化 EF Core Entity。
