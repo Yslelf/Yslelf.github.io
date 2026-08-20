@@ -4,7 +4,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import type { Place, Post } from '@/types/explore'
 
 const props = defineProps<{ posts: Post[]; places: Place[] }>()
-const emit = defineEmits(['close', 'post', 'place'])
+const emit = defineEmits(['close', 'post', 'place', 'author'])
 const query = ref('')
 const activeTab = ref<'all' | 'posts' | 'users' | 'places'>('all')
 const searched = ref(false)
@@ -41,7 +41,7 @@ function clearHistory() {
       <template v-else>
         <scroll-view scroll-x class="result-tabs" :show-scrollbar="false"><view><button v-for="tab in [{id:'all',label:'全部'},{id:'posts',label:'笔记'},{id:'users',label:'用户'},{id:'places',label:'地点'}]" :key="tab.id" :class="{active:activeTab===tab.id}" @click="activeTab=tab.id as typeof activeTab">{{ tab.label }}</button></view></scroll-view>
         <view v-if="activeTab==='all'||activeTab==='posts'" class="result-section"><text class="result-heading">相关笔记 · {{ postResults.length }}</text><view class="search-post-grid"><button v-for="post in postResults.slice(0,activeTab==='all'?4:20)" :key="post.id" @click="emit('post',post)"><image :src="post.cover" mode="aspectFill"/><text>{{ post.title }}</text><view><image :src="post.avatar"/><text>{{ post.author }}</text><text>♡ {{ post.likes }}</text></view></button></view></view>
-        <view v-if="activeTab==='all'||activeTab==='users'" class="result-section"><text class="result-heading">相关用户 · {{ userResults.length }}</text><button v-for="user in userResults" :key="user.name" class="user-result"><image :src="user.avatar"/><view><text>{{ user.name }}</text><text>{{ user.noteCount }} 篇笔记 · IP属地江西</text></view><text>关注</text></button></view>
+        <view v-if="activeTab==='all'||activeTab==='users'" class="result-section"><text class="result-heading">相关用户 · {{ userResults.length }}</text><button v-for="user in userResults" :key="user.name" class="user-result" @click="emit('author',user.name)"><image :src="user.avatar"/><view><text>{{ user.name }}</text><text>{{ user.noteCount }} 篇笔记 · IP属地江西</text></view><text>查看</text></button></view>
         <view v-if="activeTab==='all'||activeTab==='places'" class="result-section"><text class="result-heading">相关地点 · {{ placeResults.length }}</text><button v-for="place in placeResults" :key="place.id" class="place-result" @click="emit('place',place)"><image :src="place.image" mode="aspectFill"/><view><text>{{ place.name }}</text><text>{{ place.subtitle }}</text><text>{{ place.distance }} · {{ place.score }} 分</text></view><AppIcon type="right" size="17" color="#91a09c"/></button></view>
         <view v-if="!postResults.length&&!userResults.length&&!placeResults.length" class="search-empty"><AppIcon type="search" size="34" color="#91a29d"/><text>暂时没有找到相关内容</text><text>换个关键词试试吧</text></view>
       </template>

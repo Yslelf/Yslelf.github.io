@@ -72,7 +72,12 @@
     "likes": 126,
     "useful": 48,
     "checkedIn": true,
-    "live": true
+    "live": true,
+    "mediaCount": 6,
+    "publishedAt": "2026-08-21T18:42:00+08:00",
+    "liked": false,
+    "collected": false,
+    "usefulMarked": false
   }]
 }
 ```
@@ -81,7 +86,7 @@
 
 ### `GET /explore/posts`
 
-参数：`cursor`、`limit`（默认 20，最大 50）、`category`、`keyword`、`longitude`、`latitude`、`sort`（`recommended|nearest|latest`）。
+参数：`cursor`、`limit`（默认 20，最大 50）、`category`、`keyword`、`longitude`、`latitude`、`maxDistanceKm`、`sort`（`recommended|nearest|latest`）。服务端应根据登录用户写回 `liked`、`collected`、`usefulMarked`，前端不再拼装这些状态。
 
 ```json
 {
@@ -98,6 +103,8 @@
 | GET | `/places/{id}` | 否 | 地点详情和统计 |
 | GET | `/places/{id}/posts` | 否 | 地点下的帖子 |
 | POST | `/places/{id}/check-ins` | 是 | 现场打卡，服务端验证位置 |
+| POST | `/places/{id}/wanted` | 是 | 加入想去，幂等 |
+| DELETE | `/places/{id}/wanted` | 是 | 取消想去 |
 | POST | `/places/{id}/corrections` | 是 | 提交地点纠错 |
 | GET | `/places/nearby` | 否 | 按坐标和半径查询附近地点 |
 
@@ -111,6 +118,8 @@
 | DELETE | `/posts/{id}` | 是 | 软删除自己的帖子 |
 | POST | `/posts/{id}/likes` | 是 | 点赞，幂等 |
 | DELETE | `/posts/{id}/likes` | 是 | 取消点赞 |
+| POST | `/posts/{id}/collections` | 是 | 收藏，幂等 |
+| DELETE | `/posts/{id}/collections` | 是 | 取消收藏 |
 | POST | `/posts/{id}/useful` | 是 | 标记有用，幂等 |
 | GET | `/posts/{id}/comments` | 否 | 评论游标分页 |
 | POST | `/posts/{id}/comments` | 是 | 发表评论或回复 |

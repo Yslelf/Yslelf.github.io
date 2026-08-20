@@ -29,6 +29,27 @@ export interface Post {
   live: boolean;
   liked?: boolean;
   collected?: boolean;
+  usefulMarked?: boolean;
+  mediaCount?: number;
+  publishedAt?: string;
+}
+export interface PostComment {
+  id: number;
+  postId: number;
+  author: string;
+  avatar?: string;
+  content: string;
+  time: string;
+  liked: boolean;
+}
+export type ExploreSort = 'recommended' | 'nearest' | 'latest';
+export interface ExplorePostQuery {
+  cursor?: string;
+  limit?: number;
+  category?: string;
+  keyword?: string;
+  sort?: ExploreSort;
+  maxDistanceKm?: number;
 }
 export interface Party {
   id: number;

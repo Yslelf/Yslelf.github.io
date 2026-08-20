@@ -19,6 +19,7 @@ const showCommunitySearch = ref(false)
 const selectedAuthor = ref<string | null>(null)
 const selectedSort = ref<'推荐' | '距离最近' | '最新发布'>('推荐')
 const maxDistance = ref(10)
+const selectedAttributes = ref<string[]>(['真实到访'])
 const feedChannel = ref('推荐')
 const feedChannels = computed(() => ['推荐', ...store.categories.filter(item => item.name !== '全部').map(item => item.name)])
 const feedTab = ref('发现')
@@ -29,6 +30,7 @@ const mapExplorerRef = ref<{
 const followingAuthors = ref<string[]>(uni.getStorageSync('xy-following-authors') || [])
 const commentDraft = ref('')
 const localComments = ref<Array<{ id: number; author: string; content: string; time: string; liked: boolean }>>([])
+const allComments = computed(() => [...store.comments, ...localComments.value])
 const selectedPlace = computed(() => store.places.find(item => item.id === selectedPlaceId.value))
 const selectedPost = computed(() => store.posts.find(item => item.id === selectedPostId.value))
 const placePosts = computed(() => store.posts.filter(item => item.placeId === selectedPlaceId.value))
@@ -39,7 +41,17 @@ const filteredPosts = computed(() => {
     const placeIds = store.places.filter(place => place.category === feedChannel.value || place.tags.includes(feedChannel.value)).map(place => place.id)
     result = result.filter(post => placeIds.includes(post.placeId))
   }
-  return value ? result.filter(item => `${item.title}${item.excerpt}${placeName(item.placeId)}`.toLowerCase().includes(value)) : result
+  if (feedTab.value === '关注') result = result.filter(post => followingAuthors.value.includes(post.author))
+  if (feedTab.value === '附近') {
+    result = result.filter(post => distanceNumber(placeDistance(post.placeId)) <= maxDistance.value)
+  }
+  if (selectedAttributes.value.includes('真实到访')) result = result.filter(post => post.checkedIn)
+  if (selectedAttributes.value.includes('现场发布')) result = result.filter(post => post.live)
+  if (selectedAttributes.value.includes('图文丰富')) result = result.filter(post => (post.mediaCount ?? 1) >= 3)
+  if (value) result = result.filter(item => `${item.title}${item.excerpt}${placeName(item.placeId)}`.toLowerCase().includes(value))
+  if (selectedSort.value === '距离最近') result = [...result].sort((a, b) => distanceNumber(placeDistance(a.placeId)) - distanceNumber(placeDistance(b.placeId)))
+  if (selectedSort.value === '最新发布') result = [...result].sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))
+  return result
 })
 const leftPosts = computed(() => filteredPosts.value.filter((_, index) => index % 2 === 0))
 const rightPosts = computed(() => filteredPosts.value.filter((_, index) => index % 2 === 1))
@@ -47,6 +59,8 @@ const rightPosts = computed(() => filteredPosts.value.filter((_, index) => index
 onMounted(() => store.load())
 const placeName = (id: number) => store.places.find(p => p.id === id)?.name ?? '南昌宝藏地'
 const placeDistance = (id: number) => store.places.find(p => p.id === id)?.distance ?? ''
+const distanceNumber = (value: string) => Number.parseFloat(value) || Number.POSITIVE_INFINITY
+const isWanted = computed(() => selectedPlace.value ? store.wantedPlaceIds.includes(selectedPlace.value.id) : false)
 
 async function refresh() {
   refreshing.value = true
@@ -54,9 +68,9 @@ async function refresh() {
   setTimeout(() => { refreshing.value = false }, 350)
 }
 
-function toggleUseful(post: Post) {
-  post.useful += 1
-  uni.showToast({ title: '已标记有用', icon: 'none' })
+async function toggleUseful(post: Post) {
+  await store.toggleUseful(post)
+  uni.showToast({ title: post.usefulMarked ? '已标记有用' : '操作失败，请重试', icon: 'none' })
 }
 
 function toggleLike(post: Post) {
@@ -91,12 +105,14 @@ function sharePost() {
   } })
 }
 
-function submitComment() {
+async function submitComment() {
   const content = commentDraft.value.trim()
   if (!content) return
-  localComments.value.unshift({ id: Date.now(), author: '我', content, time: '刚刚', liked: false })
-  commentDraft.value = ''
-  uni.showToast({ title: '评论成功', icon: 'success' })
+  try {
+    await store.addComment(selectedPost.value!.id, content)
+    commentDraft.value = ''
+    uni.showToast({ title: '评论成功', icon: 'success' })
+  } catch { uni.showToast({ title: '发送失败，请重试', icon: 'none' }) }
 }
 
 function openPlace(id: number) {
@@ -126,8 +142,22 @@ function closeDetail() {
   showComments.value = false
 }
 
-function checkIn() {
-  uni.showToast({ title: '已记录这次到访', icon: 'success' })
+async function checkIn() {
+  if (!selectedPlace.value) return
+  try { await store.checkIn(selectedPlace.value.id); uni.showToast({ title: '已记录这次到访', icon: 'success' }) }
+  catch { uni.showToast({ title: '打卡失败，请重试', icon: 'none' }) }
+}
+
+async function toggleWanted() {
+  if (!selectedPlace.value) return
+  await store.toggleWantedPlace(selectedPlace.value.id)
+  uni.showToast({ title: isWanted.value ? '已加入想去' : '已取消想去', icon: 'none' })
+}
+
+function toggleAttribute(attribute: string) {
+  selectedAttributes.value = selectedAttributes.value.includes(attribute)
+    ? selectedAttributes.value.filter(item => item !== attribute)
+    : [...selectedAttributes.value, attribute]
 }
 
 function navigateToPlace() {
@@ -203,13 +233,13 @@ async function locateCurrent() {
       <template v-else>
         <view class="feed-column">
           <article v-for="post in leftPosts" :key="post.id" class="post-card" @click="openPost(post)">
-            <view class="cover-wrap"><image class="post-cover" :src="post.cover" mode="aspectFill" /><view v-if="post.live" class="live-badge">现场</view><view v-if="post.id%3===0" class="image-count">{{ post.id % 4 + 2 }}图</view></view>
+            <view class="cover-wrap"><image class="post-cover" :src="post.cover" mode="aspectFill" /><view v-if="post.live" class="live-badge">现场</view><view v-if="(post.mediaCount ?? 1)>1" class="image-count">{{ post.mediaCount }}图</view></view>
             <view class="post-body"><text class="post-title">{{ post.title }}</text><view class="post-footer"><button class="author" @click.stop="openAuthor(post.author)"><image :src="post.avatar"/><text>{{ post.author }}</text></button><button class="like-button" :class="{active:post.liked}" @click.stop="toggleLike(post)"><AppIcon :type="post.liked?'heart-filled':'heart'" size="16" :color="post.liked?'#e85d6a':'#71817d'"/><text>{{ post.likes }}</text></button></view></view>
           </article>
         </view>
         <view class="feed-column">
           <article v-for="post in rightPosts" :key="post.id" class="post-card" @click="openPost(post)">
-            <view class="cover-wrap"><image class="post-cover" :src="post.cover" mode="aspectFill" /><view v-if="post.live" class="live-badge">现场</view><view v-if="post.id%3===0" class="image-count">{{ post.id % 4 + 2 }}图</view></view>
+            <view class="cover-wrap"><image class="post-cover" :src="post.cover" mode="aspectFill" /><view v-if="post.live" class="live-badge">现场</view><view v-if="(post.mediaCount ?? 1)>1" class="image-count">{{ post.mediaCount }}图</view></view>
             <view class="post-body"><text class="post-title">{{ post.title }}</text><view class="post-footer"><button class="author" @click.stop="openAuthor(post.author)"><image :src="post.avatar"/><text>{{ post.author }}</text></button><button class="like-button" :class="{active:post.liked}" @click.stop="toggleLike(post)"><AppIcon :type="post.liked?'heart-filled':'heart'" size="16" :color="post.liked?'#e85d6a':'#71817d'"/><text>{{ post.likes }}</text></button></view></view>
           </article>
         </view>
@@ -224,7 +254,7 @@ async function locateCurrent() {
       <view class="sheet-handle"/><view class="sheet-head"><text>筛选附近灵感</text><button @click="showFilter=false"><AppIcon type="closeempty" size="22" color="#42645b"/></button></view>
       <view class="filter-group"><text class="filter-label">排序方式</text><view class="filter-options"><button v-for="sort in ['推荐','距离最近','最新发布']" :key="sort" :class="{active:selectedSort===sort}" @click="selectedSort=sort as typeof selectedSort">{{ sort }}</button></view></view>
       <view class="filter-group"><view class="distance-line"><text class="filter-label">距离范围</text><text>{{ maxDistance }} km 内</text></view><slider :value="maxDistance" min="1" max="30" activeColor="#278c74" backgroundColor="#dfeae6" block-color="#278c74" block-size="20" @change="maxDistance=Number($event.detail.value)"/></view>
-      <view class="filter-group"><text class="filter-label">内容属性</text><view class="filter-options"><button class="active">真实到访</button><button>现场发布</button><button>图文丰富</button></view></view>
+      <view class="filter-group"><text class="filter-label">内容属性</text><view class="filter-options"><button v-for="attribute in ['真实到访','现场发布','图文丰富']" :key="attribute" :class="{active:selectedAttributes.includes(attribute)}" @click="toggleAttribute(attribute)">{{ attribute }}</button></view></view>
       <button class="apply-filter" @click="showFilter=false">查看 {{ filteredPosts.length }} 条结果</button>
     </view>
   </view>
@@ -235,7 +265,7 @@ async function locateCurrent() {
       <view v-if="!selectedPost" class="place-detail-body">
         <view class="place-title-row"><view><text class="detail-kicker">{{ selectedPlace.category }} · {{ selectedPlace.distance }}</text><text class="detail-title">{{ selectedPlace.name }}</text><text class="detail-sub">{{ selectedPlace.subtitle }}</text></view><view class="score-orb"><text>{{ selectedPlace.score }}</text><text>体验分</text></view></view>
         <view class="detail-tags"><text v-for="tag in selectedPlace.tags" :key="tag">{{ tag }}</text></view>
-        <view class="place-actions"><button @click="navigateToPlace"><AppIcon type="paperplane-filled" size="21" color="#267f6b"/><text>导航</text></button><button @click="checkIn"><AppIcon type="location-filled" size="21" color="#267f6b"/><text>现场打卡</text></button><button><AppIcon type="heart" size="21" color="#267f6b"/><text>想去</text></button></view>
+        <view class="place-actions"><button @click="navigateToPlace"><AppIcon type="paperplane-filled" size="21" color="#267f6b"/><text>导航</text></button><button @click="checkIn"><AppIcon type="location-filled" size="21" color="#267f6b"/><text>现场打卡</text></button><button :class="{active:isWanted}" @click="toggleWanted"><AppIcon :type="isWanted?'heart-filled':'heart'" size="21" :color="isWanted?'#fff':'#267f6b'"/><text>{{ isWanted?'已想去':'想去' }}</text></button></view>
         <view class="info-card"><view><AppIcon type="map-pin-ellipse" size="20" color="#4b8e7c"/><text>红谷滩区赣江中大道附近</text></view><view><AppIcon type="calendar" size="20" color="#4b8e7c"/><text>建议 17:30—19:20 到达</text></view></view>
         <view class="detail-section-head"><text>这里的真实体验</text><text>{{ placePosts.length }} 篇 ›</text></view>
         <button v-for="post in placePosts" :key="post.id" class="detail-post" @click="openPost(post)"><image :src="post.cover" mode="aspectFill"/><view><text>{{ post.title }}</text><text>{{ post.author }} · 有用 {{ post.useful }}</text></view></button>
@@ -245,7 +275,7 @@ async function locateCurrent() {
         <text class="detail-title">{{ selectedPost.title }}</text><text class="post-copy">{{ selectedPost.excerpt }}\n\n沿江的风会比市区大一些，建议带件薄外套。从地铁站出来步行十分钟左右，沿途也有不少适合停下来的位置。这里不需要门票，尽量把垃圾随手带走。</text>
         <view class="detail-tags"><text v-for="tag in selectedPlace.tags" :key="tag"># {{ tag }}</text></view>
         <button class="linked-place" @click="selectedPostId=null"><AppIcon type="location-filled" size="21" color="#278b74"/><view><text>{{ selectedPlace.name }}</text><text>{{ selectedPlace.subtitle }} · 查看地点</text></view><AppIcon type="right" size="17" color="#849a94"/></button>
-        <view class="post-stats"><text>{{ selectedPost.likes }} 人喜欢</text><text>{{ selectedPost.useful }} 人觉得有用</text><text>36 条评论</text></view>
+        <view class="post-stats"><text>{{ selectedPost.likes }} 人喜欢</text><button :class="{active:selectedPost.usefulMarked}" @click="toggleUseful(selectedPost)">{{ selectedPost.usefulMarked?'已标记有用':`${selectedPost.useful} 人觉得有用` }}</button><text>{{ allComments.length + 2 }} 条评论</text></view>
         <view class="post-actionbar"><button :class="{active:selectedPost.liked}" @click="toggleLike(selectedPost)"><AppIcon :type="selectedPost.liked?'heart-filled':'heart'" size="21" :color="selectedPost.liked?'#e85d6a':'#327d6b'"/>{{ selectedPost.liked?'已赞':'点赞' }}</button><button @click="showComments=true"><AppIcon type="chat" size="21" color="#327d6b"/>评论</button><button :class="{active:selectedPost.collected}" @click="toggleCollect(selectedPost)"><AppIcon :type="selectedPost.collected?'star-filled':'star'" size="21" :color="selectedPost.collected?'#e3a342':'#327d6b'"/>{{ selectedPost.collected?'已收藏':'收藏' }}</button></view>
       </view>
       <view class="bottom-space"/>
@@ -253,14 +283,14 @@ async function locateCurrent() {
   </view>
 
   <view v-if="showComments && selectedPost" class="sheet-layer" @click="showComments=false">
-    <view class="comment-sheet" @click.stop><view class="sheet-handle"/><view class="sheet-head"><text>36 条真实评论</text><button @click="showComments=false"><AppIcon type="closeempty" size="22" color="#42645b"/></button></view>
+    <view class="comment-sheet" @click.stop><view class="sheet-handle"/><view class="sheet-head"><text>{{ allComments.length + 2 }} 条真实评论</text><button @click="showComments=false"><AppIcon type="closeempty" size="22" color="#42645b"/></button></view>
       <view class="comment"><view class="comment-avatar">林</view><view><text>林同学</text><text>傍晚六点左右的光线最好，江边风也很舒服。</text><text>2小时前 · 回复　<text class="reply">展开2条回复</text></text></view><AppIcon type="heart" size="17" color="#81958f"/></view>
       <view class="comment"><view class="comment-avatar blue">周</view><view><text>周末散步</text><text>请问地铁出来要走多久？</text><text>5小时前 · 回复</text></view><AppIcon type="heart" size="17" color="#81958f"/></view>
-      <view v-for="comment in localComments" :key="comment.id" class="comment"><view class="comment-avatar">我</view><view><text>{{ comment.author }}</text><text>{{ comment.content }}</text><text>{{ comment.time }} · 回复</text></view><button class="comment-like" @click="comment.liked=!comment.liked"><AppIcon :type="comment.liked?'heart-filled':'heart'" size="17" :color="comment.liked?'#e85d6a':'#81958f'"/></button></view>
+      <view v-for="comment in allComments" :key="comment.id" class="comment"><view class="comment-avatar">{{ comment.author.slice(0,1) }}</view><view><text>{{ comment.author }}</text><text>{{ comment.content }}</text><text>{{ comment.time }} · 回复</text></view><button class="comment-like" @click="comment.liked=!comment.liked"><AppIcon :type="comment.liked?'heart-filled':'heart'" size="17" :color="comment.liked?'#e85d6a':'#81958f'"/></button></view>
       <view class="comment-input"><input v-model="commentDraft" confirm-type="send" placeholder="说点真实感受…" @confirm="submitComment"/><button @click="submitComment"><AppIcon type="paperplane-filled" size="18" color="#fff"/></button></view>
     </view>
   </view>
-  <CommunitySearch v-if="showCommunitySearch" :posts="store.posts" :places="store.places" @close="showCommunitySearch=false" @post="openPostFromSearch" @place="openPlaceFromSearch"/>
+  <CommunitySearch v-if="showCommunitySearch" :posts="store.posts" :places="store.places" @close="showCommunitySearch=false" @post="openPostFromSearch" @place="openPlaceFromSearch" @author="author=>{showCommunitySearch=false;openAuthor(author)}"/>
   <AuthorProfile v-if="selectedAuthor" :author="selectedAuthor" :posts="store.posts" :followed="followingAuthors.includes(selectedAuthor)" @close="selectedAuthor=null" @follow="toggleFollow" @post="openPostFromAuthor"/>
 </template>
 
@@ -356,4 +386,5 @@ async function locateCurrent() {
 @media (min-width:1024px){
   .explore-page{height:calc(100vh - 92px);background:#fff}.feed-topbar{display:none}.feed-channels{position:sticky;z-index:18;top:0;height:70px!important;border:0;background:rgba(255,255,255,.97);backdrop-filter:blur(16px)}.feed-channel-row{gap:34px;height:70px;padding:0 18px}.feed-channel-row button{padding:23px 2px;font-size:15px}.feed-channel-row button.active{padding:12px 20px;border-radius:999px;background:var(--xy-soft);color:var(--xy-primary-deep)}.feed-channel-row button.active:after{display:none}.feed-list{display:block;padding:12px 8px 120px;column-count:5;column-gap:18px}.feed-column{display:contents}.feed-column:nth-child(2){padding-top:0}.feed-column .post-card{display:inline-block;width:100%;margin:0 0 24px;break-inside:avoid;vertical-align:top}.feed-column .cover-wrap,.feed-column .post-card:nth-child(3n+2) .cover-wrap,.feed-column .post-card:nth-child(3n) .cover-wrap,.feed-column:nth-child(2) .post-card:nth-child(3n+1) .cover-wrap,.feed-column:nth-child(2) .post-card:nth-child(3n+2) .cover-wrap{height:auto;aspect-ratio:4/5}.feed-column .post-card:nth-child(3n+2) .cover-wrap{aspect-ratio:1/1}.feed-column .post-card:nth-child(3n) .cover-wrap{aspect-ratio:3/4}.feed-column .post-body{padding:11px 5px 0}.feed-column .post-title{font-size:15px}.feed-column .author image{width:24px;height:24px}.feed-column .author>text{max-width:90px;font-size:12px}.feed-column .like-button{font-size:12px}.map-card{height:calc(100vh - 220px);min-height:620px;margin:0 10px 30px}.hero{padding:22px 28px 30px;border-radius:0 0 32px 32px}.headline{margin:26px 2px 22px}.title{font-size:34px}.search-box{max-width:680px;height:64px}.explore-switch{margin:-18px auto 16px}.detail-layer{right:auto;left:50%;width:560px;transform:translateX(-50%)}
 }
+.place-actions button.active{border-color:var(--xy-primary);background:var(--xy-primary);color:#fff}.post-stats{align-items:center}.post-stats button{margin:0;padding:0;border:0;background:transparent;color:#80938d;font-size:19rpx}.post-stats button.active{color:var(--xy-primary);font-weight:650}
 </style>
